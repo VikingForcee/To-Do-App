@@ -1,5 +1,13 @@
 // Sidebar.jsx
+import {
+  SignInButton,
+  SignUpButton,
+  UserButton,
+  useUser,
+} from "@clerk/clerk-react";
+
 export default function Sidebar({ selectedDate, setSelectedDate, todoData, theme, isDark }) {
+  const { isSignedIn, user } = useUser();
   const dates = Object.keys(todoData).sort().reverse();
 
   return (
@@ -9,34 +17,43 @@ export default function Sidebar({ selectedDate, setSelectedDate, todoData, theme
         : 'bg-white border-r border-gray-200'
     }`}>
       {/* Header */}
-      <div className={`text-lg font-bold transition-colors duration-300 ${
-        isDark ? 'text-white' : 'text-gray-700'
-      }`}>
+      <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-700'}`}>
         ToDo App
       </div>
 
-      {/* Sign In/Up Button */}
+      {/* Sign In / Sign Up / User Button */}
       <div className="space-y-2">
-        <button className={`w-full text-white py-2 rounded-lg font-medium transition-all duration-200 ${
-          theme.primary
-        } ${theme.hover}`}>
-          Sign In / Sign Up
-        </button>
+        {isSignedIn ? (
+          <div className="flex items-center gap-2">
+            <UserButton afterSignOutUrl="/" />
+            <p className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+              Hello, {user.firstName || "User"}!
+            </p>
+          </div>
+        ) : (
+          <>
+            <SignInButton mode="modal">
+              <button className={`w-full text-white py-2 rounded-lg font-medium ${theme.primary} ${theme.hover}`}>
+                Sign In
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className={`w-full text-white py-2 rounded-lg font-medium ${theme.primary} ${theme.hover}`}>
+                Sign Up
+              </button>
+            </SignUpButton>
+          </>
+        )}
       </div>
 
-      {/* Date Lists Section */}
+      {/* Date Lists */}
       <div className="mt-6">
-        <h3 className={`text-sm font-semibold mb-2 transition-colors duration-300 ${
-          isDark ? 'text-gray-300' : 'text-gray-600'
-        }`}>
+        <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           Date Lists
         </h3>
-        
         <ul className="space-y-1 max-h-60 overflow-y-auto">
           {dates.length === 0 ? (
-            <li className={`text-sm transition-colors duration-300 ${
-              isDark ? 'text-gray-500' : 'text-gray-400'
-            }`}>
+            <li className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
               No data yet
             </li>
           ) : (
@@ -56,7 +73,7 @@ export default function Sidebar({ selectedDate, setSelectedDate, todoData, theme
                 >
                   {date}
                   {todoData[date] && (
-                    <span className={`ml-2 text-xs px-2 py-1 rounded-full transition-colors duration-200 ${
+                    <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
                       isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600'
                     }`}>
                       {todoData[date].length}
@@ -68,7 +85,6 @@ export default function Sidebar({ selectedDate, setSelectedDate, todoData, theme
           )}
         </ul>
       </div>
-
     </div>
   );
 }
