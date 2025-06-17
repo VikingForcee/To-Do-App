@@ -1,7 +1,15 @@
-// TodoList.jsx
+import { memo } from "react";
 import TodoItem from "./TodoItem";
 
-export default function TodoList({ todos, onToggleComplete, onDeleteClick, showNumbers, theme, isDark }) {
+const TodoList = memo(function TodoList({ 
+  todos, 
+  onToggleComplete, 
+  onDeleteClick, 
+  showNumbers, 
+  theme, 
+  isDark,
+  disabled = false 
+}) {
   if (todos.length === 0) {
     return (
       <div className={`text-center py-8 transition-colors duration-300 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -12,7 +20,7 @@ export default function TodoList({ todos, onToggleComplete, onDeleteClick, showN
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1" role="list" aria-label="Todo items">
       {todos.map((todo, index) => (
         <TodoItem
           key={todo.id}
@@ -23,8 +31,11 @@ export default function TodoList({ todos, onToggleComplete, onDeleteClick, showN
           isDark={isDark}
           showNumber={showNumbers}
           number={index + 1}
+          disabled={disabled}
         />
       ))}
     </div>
   );
-}
+});
+
+export default TodoList;

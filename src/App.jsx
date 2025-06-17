@@ -1,9 +1,11 @@
-// App.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { SignedIn, SignedOut, SignUp } from '@clerk/clerk-react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import TodoInput from "./components/TodoInput";
 import TodoList from "./components/TodoList";
 import Sidebar from "./components/Sidebar";
-import { v4 as uuidv4 } from "uuid";
+import { getTasks, addTask, updateTask, deleteTask, deleteTasksByDate } from './firestore';
 
 const themes = {
   sky: {
@@ -72,7 +74,8 @@ const themes = {
   },
 };
 
-export default function App() {
+function TodoApp() {
+  const { user, isLoaded } = useUser();
   const [todoData, setTodoData] = useState({});
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -80,74 +83,161 @@ export default function App() {
   });
   const [showNumbers, setShowNumbers] = useState(false);
   const [theme, setTheme] = useState("sky");
+  const [loading, setLoading] = useState(false);
 
-  const todos = todoData[selectedDate] || [];
+  // Memoize current todos to prevent unnecessary recalculations
+  const todos = useMemo(() => todoData[selectedDate] || [], [todoData, selectedDate]);
 
-  // Load todo data from localStorage on mount
+  // Memoize theme calculations
+  const currentTheme = useMemo(() => themes[theme], [theme]);
+  const isDark = useMemo(() => theme === 'night' || theme === 'cyber', [theme]);
+
+  // Fetch tasks from Firestore
   useEffect(() => {
+    if (!isLoaded || !user) return;
+
+    setLoading(true);
+    
+    // Use consistent user ID - prefer firebaseUid if available
+    const userId = user?.publicMetadata?.firebaseUid || user.id;
+    
+    const unsubscribe = getTasks(userId, (tasks) => {
+      const formattedData = tasks.reduce((acc, task) => {
+        const date = task.dayOfMaking;
+        if (!acc[date]) acc[date] = [];
+        acc[date].push({
+          id: task.id,
+          text: task.task,
+          completed: task.isCompleted,
+          markedForDelete: task.markedForDelete || false, // Ensure boolean
+        });
+        return acc;
+      }, {});
+      setTodoData(formattedData);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+      setLoading(false);
+    };
+  }, [user?.id, user?.publicMetadata?.firebaseUid, isLoaded]);
+
+  // Memoize callback functions to prevent unnecessary re-renders
+  const addTodo = useCallback(async (text) => {
+    if (!text.trim() || !user) return;
+
+    setLoading(true);
     try {
-      const stored = localStorage.getItem("todoData");
-      const parsed = stored ? JSON.parse(stored) : {};
-      setTodoData(parsed);
-    } catch (e) {
-      console.error("Error parsing from localStorage", e);
-      setTodoData({});
+      const userId = user?.publicMetadata?.firebaseUid || user.id;
+      await addTask(userId, selectedDate, text);
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, selectedDate]);
+
+  const markForDelete = useCallback(async (id) => {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+
+    setLoading(true);
+    try {
+      await updateTask(id, { markedForDelete: !todo.markedForDelete });
+    } catch (error) {
+      console.error('Failed to mark task for deletion:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [todos]);
+
+  const toggleTodo = useCallback(async (id) => {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+
+    setLoading(true);
+    try {
+      await updateTask(id, { 
+        isCompleted: !todo.completed,
+        markedForDelete: false 
+      });
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [todos]);
+
+  const deleteTodo = useCallback(async (id) => {
+    setLoading(true);
+    try {
+      await deleteTask(id);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Save todoData to localStorage when changed
-  useEffect(() => {
-    localStorage.setItem("todoData", JSON.stringify(todoData));
-  }, [todoData]);
-
-  // Add todo to selected date
-  const addTodo = (text) => {
-    const newTodos = [...todos, { id: uuidv4(), text, completed: false, markedForDelete: false }];
-    setTodoData(prev => ({ ...prev, [selectedDate]: newTodos }));
-  };
-
-  const markForDelete = (id) => {
-    const updated = todos.map(todo =>
-      todo.id === id ? { ...todo, markedForDelete: !todo.markedForDelete } : todo
-    );
-    setTodoData(prev => ({ ...prev, [selectedDate]: updated }));
-  };
-
-  const toggleTodo = (id) => {
-    const updated = todos.map(todo =>
-      todo.id === id
-        ? { ...todo, completed: !todo.completed, markedForDelete: false }
-        : todo
-    );
-    setTodoData(prev => ({ ...prev, [selectedDate]: updated }));
-  };
-
-  const deleteTodo = (id) => {
-    const updated = todos.filter(todo => todo.id !== id);
-    setTodoData(prev => ({ ...prev, [selectedDate]: updated }));
-  };
-
-  const handleDeleteClick = (id) => {
+  const handleDeleteClick = useCallback(async (id) => {
     const todo = todos.find(t => t.id === id);
     if (todo?.markedForDelete) {
-      deleteTodo(id);
+      await deleteTodo(id);
     } else {
-      markForDelete(id);
+      await markForDelete(id);
     }
-  };
+  }, [todos, deleteTodo, markForDelete]);
 
-  const completeAll = () => {
-    const allMarked = todos.length > 0 && todos.every(todo => todo.markedForDelete);
-    if (allMarked) {
-      setTodoData(prev => ({ ...prev, [selectedDate]: [] }));
-    } else {
-      const updated = todos.map(todo => ({ ...todo, markedForDelete: true }));
-      setTodoData(prev => ({ ...prev, [selectedDate]: updated }));
+  const completeAll = useCallback(async () => {
+    if (!user || todos.length === 0) return;
+
+    const allMarked = todos.every(todo => todo.markedForDelete);
+    setLoading(true);
+    
+    try {
+      if (allMarked) {
+        const userId = user?.publicMetadata?.firebaseUid || user.id;
+        await deleteTasksByDate(userId, selectedDate);
+      } else {
+        // Use Promise.allSettled to handle partial failures gracefully
+        const batch = todos.map(todo => 
+          updateTask(todo.id, { markedForDelete: true })
+        );
+        const results = await Promise.allSettled(batch);
+        
+        // Log any failures
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`Failed to mark task ${todos[index].id}:`, result.reason);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to complete bulk operation:', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user, todos, selectedDate]);
 
-  const currentTheme = themes[theme];
-  const isDark = theme === 'night' || theme === 'cyber';
+  // Memoize completion stats
+  const completionStats = useMemo(() => {
+    const completed = todos.filter(t => t.completed).length;
+    const total = todos.length;
+    return { completed, total };
+  }, [todos]);
+
+  // Show loading state
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${currentTheme.bg} p-4 relative transition-all duration-500`}>
@@ -157,6 +247,7 @@ export default function App() {
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
           className="text-sm p-2 border rounded-lg shadow-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={loading}
         >
           {Object.keys(themes).map((t) => (
             <option key={t} value={t}>
@@ -168,6 +259,7 @@ export default function App() {
 
       {/* Sidebar + Main */}
       <div className="flex">
+        {/* Show sidebar for both signed in and signed out users */}
         <Sidebar 
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
@@ -188,41 +280,95 @@ export default function App() {
                   checked={showNumbers}
                   onChange={() => setShowNumbers(!showNumbers)}
                   className="h-4 w-4 accent-current"
+                  disabled={loading}
                 />
                 Show Numbers
               </label>
             </div>
 
-            <TodoInput onAdd={addTodo} theme={currentTheme} isDark={isDark} />
-
-            <TodoList
-              todos={todos}
-              onToggleComplete={toggleTodo}
-              onDeleteClick={handleDeleteClick}
-              showNumbers={showNumbers}
-              theme={currentTheme}
-              isDark={isDark}
-            />
-
-            <button
-              onClick={completeAll}
-              className={`w-full ${currentTheme.primary} text-white px-4 py-2 rounded-lg ${currentTheme.hover} disabled:opacity-50 transition-all duration-200`}
-              disabled={todos.length === 0}
-            >
-              {todos.length > 0 && todos.every((todo) => todo.markedForDelete)
-                ? "Clear All Tasks"
-                : "Mark All for Deletion"
-              }
-            </button>
-
-            {todos.length > 0 && (
-              <div className={`text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {todos.filter(t => t.completed).length} of {todos.length} completed
+            <SignedIn>
+              <TodoInput 
+                onAdd={addTodo} 
+                theme={currentTheme} 
+                isDark={isDark}
+                disabled={loading}
+              />
+              
+              {loading && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-current"></div>
+                  <span className="ml-2 text-sm">Loading...</span>
+                </div>
+              )}
+              
+              <TodoList
+                todos={todos}
+                onToggleComplete={toggleTodo}
+                onDeleteClick={handleDeleteClick}
+                showNumbers={showNumbers}
+                theme={currentTheme}
+                isDark={isDark}
+                disabled={loading}
+              />
+            </SignedIn>
+            
+            <SignedOut>
+              <div className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className="text-lg">Please sign in to manage your tasks!</p>
               </div>
-            )}
+            </SignedOut>
+
+            <SignedIn>
+              <button
+                onClick={completeAll}
+                className={`w-full ${currentTheme.primary} text-white px-4 py-2 rounded-lg ${currentTheme.hover} disabled:opacity-50 transition-all duration-200`}
+                disabled={todos.length === 0 || loading}
+              >
+                {todos.length > 0 && todos.every((todo) => todo.markedForDelete)
+                  ? "Clear All Tasks"
+                  : "Mark All for Deletion"
+                }
+              </button>
+
+              {completionStats.total > 0 && (
+                <div className={`text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {completionStats.completed} of {completionStats.total} completed
+                </div>
+              )}
+            </SignedIn>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<TodoApp />} />
+        <Route
+          path="/sign-up"
+          element={
+            <SignedOut>
+              <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <SignUp redirectUrl="/" />
+              </div>
+            </SignedOut>
+          }
+        />
+        <Route
+          path="/sign-in"
+          element={
+            <SignedOut>
+              <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <SignUp redirectUrl="/" />
+              </div>
+            </SignedOut>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
