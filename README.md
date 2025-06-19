@@ -32,20 +32,20 @@ A custom **To Do List** web application built from scratch with a clean and mini
 ---
 
 ## Folder Structure
-
+```bash
 TODO-APP/
 ├── clerk-react/
 ├── src/
-│ ├── main.jsx
-│ ├── App.jsx
-│ ├── firebase.jsx
-│ ├── firestore.js
-│ └── components/
-│ ├── Sidebar.jsx
-│ ├── TodoInput.jsx
-│ ├── TodoItem.jsx
-│ └── TodoList.jsx
-
+      ├── main.jsx
+      ├── App.jsx
+      ├── firebase.jsx
+      ├── firestore.js
+      └── components/
+            ├── Sidebar.jsx
+            ├── TodoInput.jsx
+            ├── TodoItem.jsx
+            └── TodoList.jsx
+```
 ---
 
 ## Getting Started
@@ -85,4 +85,4 @@ Contributions are welcome! Please fork the repository and open a pull request wi
 
 ## Author
 Vibhor Gupta
-Software Developer| AI ML Enthusiast | LinkedIn | GitHub
+Software Developer| AI ML Enthusiast | [LinkedIn](https://www.linkedin.com/in/vibhor-gupta-221a3328a/) | [GitHub](https://github.com/VikingForcee)
