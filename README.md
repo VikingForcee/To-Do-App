@@ -1,12 +1,88 @@
-# React + Vite
+# To Do App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A custom **To Do List** web application built from scratch with a clean and minimal UI. It supports multiple themes, user authentication, and persistent storage using Firebase. Designed with reusability and modularity in mind.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
 
-## Expanding the ESLint configuration
+- **Frontend**: [React](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS](https://tailwindcss.com/)
+- **Authentication**: [Clerk](https://clerk.dev/)
+- **Backend**: [Firebase Firestore](https://firebase.google.com/docs/firestore)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Features
+
+- User Authentication (Sign In / Sign Up via Clerk)
+- Tasks saved Date-wise in Firebase
+- Persistent storage & real-time sync
+- 8 Unique Themes (e.g., Sky, Cyber, Dark, etc.)
+- Fully Responsive & Mobile-friendly
+- Reusable Components (Sidebar, TodoInput, TodoList, etc.)
+- Optimized with Vite for fast performance
+
+---
+
+## Demo Previews
+
+![Preview Light Theme](./public/cyber.png)
+![Preview Dark Theme](./public/skyblue.png)
+
+---
+
+## Folder Structure
+
+TODO-APP/
+├── clerk-react/
+├── src/
+│ ├── main.jsx
+│ ├── App.jsx
+│ ├── firebase.jsx
+│ ├── firestore.js
+│ └── components/
+│ ├── Sidebar.jsx
+│ ├── TodoInput.jsx
+│ ├── TodoItem.jsx
+│ └── TodoList.jsx
+
+---
+
+## Getting Started
+
+### 1. Clone the Repo
+
+```bash
+git clone https://github.com/VikingForcee/To-Do-App.git
+cd To-Do-App
+```
+
+2. Install Dependencies
+```bash
+npm install
+```
+
+3. Setup Environment Variables
+Create a .env file in the root and add your Firebase and Clerk credentials:
+
+```bash
+VITE_FIREBASE_API_KEY=your_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_key
+```
+
+4. Run the App
+```bash
+npm run dev
+```
+
+## Contributing
+Contributions are welcome! Please fork the repository and open a pull request with your changes.
+
+## Author
+Vibhor Gupta
+Software Developer| AI ML Enthusiast | LinkedIn | GitHub
